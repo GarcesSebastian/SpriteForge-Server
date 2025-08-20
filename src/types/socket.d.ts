@@ -5,12 +5,17 @@ export interface ServerToClientEvents {
 }
 
 export interface ClientToServerEvents {
-    hello: (data: EventsParams["hello"]) => void;
-    mousemove: (data: EventsParams["mousemove"]) => void;
+    "user:start": (data: EventsParams["hello"]) => void;
+    "user:share": (data: EventsParams["share"]) => void;
+    "user:mousemove": (data: EventsParams["mousemove"]) => void;
 }
 
 export interface EventsParams {
     hello: SocketData;
+    share: {
+        from: string;
+        to: string;
+    }
     mousemove: {
         pointer: {
             absolute: {
@@ -32,7 +37,9 @@ export interface InterServerEvents {
 
 export interface SocketData {
     email: string;
-    collaborators: string[];
+    username: string;
+    avatar: string;
+    collaborator_with?: string;
     token: string;
     socketId?: string;
 }

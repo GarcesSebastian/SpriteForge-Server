@@ -1,7 +1,6 @@
 import { Request, Response } from "express";
 import { Users } from "../models/users.model";
 import jwt from "jsonwebtoken";
-import { SocketManager } from "../managers/socket.manager";
 
 /**
  * 
@@ -35,21 +34,6 @@ export const _Share = async (req: Request, res: Response) => {
                 message: "User not found",
             });
         }
-
-        const sharerCollaborators = userSharer.collaborators || [];
-        if (!sharerCollaborators.includes(user.email)) {
-            sharerCollaborators.push(user.email);
-        }
-
-        const userCollaborators = user.collaborators || [];
-        if (!userCollaborators.includes(userSharer.email)) {
-            userCollaborators.push(userSharer.email);
-        }
-
-        SocketManager.getInstance().updateCollaborator(user.email, sharerCollaborators);
-        SocketManager.getInstance().updateCollaborator(userSharer.email, userCollaborators);
-        console.log(sharerCollaborators);
-        console.log(userCollaborators);
 
         res.status(200).json({
             message: "User shared successfully",

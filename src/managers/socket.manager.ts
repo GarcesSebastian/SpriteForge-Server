@@ -2,7 +2,6 @@ import { Socket, Server as SocketServer } from "socket.io";
 import { Server as HttpServer } from "http";
 import chalk from "chalk";
 import { ClientToServerEvents, EventsParams, InterServerEvents, ServerToClientEvents, SocketData } from "../types/socket";
-import { Utils } from "../lib/utils";
 
 export class SocketManager {
     public static instance: SocketManager;
@@ -10,6 +9,7 @@ export class SocketManager {
 
     private _sockets: Map<string, Socket> = new Map();
     private _clients: Map<string, SocketData> = new Map();
+    private _rooms: Map<string, string[]> = new Map();
 
     private constructor(server: HttpServer) {
         this.io = new SocketServer(server, {
@@ -31,34 +31,6 @@ export class SocketManager {
         return SocketManager.instance;
     }
 
-    public updateCollaborator(email: string, collaborators: string[]) {
-        const client = [...this._clients.values()].find((client) => client.email === email);
-        if (!client) {
-            return;
-        }
-        
-        client.collaborators = collaborators;
-        console.log("updated collaborators", this._clients);
-    }
-
-    public getCollaborators(email: string) {
-        const client = [...this._clients.values()].find((client) => client.email === email);
-        if (!client) {
-            return [];
-        }
-        
-        return client.collaborators;
-    }
-
-    public disolveCollaborators(socketId: string) {
-        const client = [...this._clients.values()].find((client) => client.socketId === socketId);
-        if (!client) {
-            return;
-        }
-        
-        client.collaborators = [];
-    }
-
     private registerEvents() {
         this.io.on("connection", (socket) => {
             if (!this._sockets.has(socket.id)) {
@@ -66,39 +38,138 @@ export class SocketManager {
             }
             console.log(chalk.green("a user connected") + ` [${this._sockets.size}]`);
 
-            socket.on("hello", (data: EventsParams["hello"]) => {
-                const payload = {
-                    ...data,
-                    collaborators: this.getCollaborators(data.email),
-                    socketId: socket.id,
-                }
-                this._clients.set(data.email, payload);
-                console.log(this._clients);
-            })
-
-            socket.on("mousemove", (data: EventsParams["mousemove"]) => {
-                const collaborators = this.getCollaborators(data.email);
-                if (!collaborators) {
+            socket.on("user:start", (data: EventsParams["hello"]) => {
+                if (this._clients.has(data.email)) {
                     return;
                 }
 
-                collaborators.forEach((collaborator: string) => {
+                console.log(chalk.yellow("User started successfully"));
+                const payload = {
+                    ...data,
+                    socketId: socket.id,
+                }
+
+                this._clients.set(data.email, payload);
+                if (!this._rooms.has(data.email)) {
+                    this._rooms.set(data.email, []);
+                }
+
+                console.log("this._rooms", this._rooms);
+                console.log("this._clients", this._clients);
+            })
+
+            socket.on("user:share", (data: EventsParams["share"]) => {
+                console.log(chalk.yellow("User shared successfully"));
+                if (!this._rooms.has(data.to)) {
+                    this._rooms.set(data.to, []);
+                }
+
+                const room = this._rooms.get(data.to);
+                if (!room) {
+                    return;
+                }
+
+                const client = this._clients.get(data.from);
+                if (!client) {
+                    return;
+                }
+
+                if(room.includes(data.from)) {
+                    return;
+                }
+
+                room.push(data.from);
+                client.collaborator_with = data.to;
+                
+                const collaborators = [...room.values()];
+                collaborators.push(data.to);
+
+                collaborators.forEach((collaborator) => {
                     const client = this._clients.get(collaborator);
-                    if (!client) {
+                    if (!client || !client.socketId) {
                         return;
                     }
-                    
-                    const socket = this._sockets.get(client.socketId!);
+
+                    const socket = this._sockets.get(client.socketId);
                     if (socket) {
-                        socket.emit("mousemove", data);
+                        const payload = {
+                            collaborators: [...collaborators].filter((col) => col !== collaborator),
+                        }
+                        socket.emit("user:collaborator", payload);
                     }
                 });
+
+                console.log("this._rooms", this._rooms);
+                console.log("this._clients", this._clients);
+            })
+
+            socket.on("user:mousemove", (data: EventsParams["mousemove"]) => {
+                // console.log(chalk.yellow("User moved successfully"));
+                const client = this._clients.get(data.email);
+                if (!client) {
+                    return;
+                }
+
+                if (client.collaborator_with) {
+                    const room = this._rooms.get(client.collaborator_with);
+                    if (!room) {
+                        return;
+                    }
+
+                    const collaborators = room.filter((collaborator) => collaborator !== client.email);
+                    collaborators.push(client.collaborator_with);
+                    collaborators.forEach((collaborator) => {
+                        const client = this._clients.get(collaborator);
+                        if (!client || !client.socketId) {
+                            return;
+                        }
+
+                        const socket = this._sockets.get(client.socketId);
+                        if (socket) {
+                            socket.emit("user:mousemove", data);
+                        }
+                    });
+
+                    return;
+                }
+
+                if (this._rooms.has(data.email)) {
+                    const room = this._rooms.get(data.email);
+                    if (!room) {
+                        return;
+                    }
+
+                    const collaborators = room.filter((collaborator) => collaborator !== client.email);
+                    collaborators.forEach((collaborator) => {
+                        const client = this._clients.get(collaborator);
+                        if (!client || !client.socketId) {
+                            return;
+                        }
+
+                        const socket = this._sockets.get(client.socketId);
+                        if (socket) {
+                            socket.emit("user:mousemove", data);
+                        }
+                    });
+                }
+
             })
 
             socket.on("disconnect", () => {
+                console.log(chalk.yellow("User disconnected"));
                 this._sockets.delete(socket.id);
-                this.disolveCollaborators(socket.id);
-                console.log(chalk.red("user disconnected") + ` [${this._sockets.size}]`);
+                const client = [...this._clients.values()].find((client) => client.socketId === socket.id);
+                if (!client) {
+                    return;
+                }
+
+                const room = this._rooms.get(client.collaborator_with!);
+                if (room) {
+                    room.splice(room.indexOf(client.email), 1);
+                }
+
+                this._clients.delete(client.email);
+                console.log(chalk.red("User disconnected") + ` [${this._sockets.size}]`);
             });
         });
     }
