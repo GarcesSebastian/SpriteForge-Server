@@ -4,7 +4,7 @@ export interface User {
     email: string;
     avatar: string;
     context: string;
-    collaborators: string;
+    collaborators?: string[];
     created_at?: Date;
     updated_at?: Date;
   }

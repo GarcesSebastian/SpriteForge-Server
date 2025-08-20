@@ -2,6 +2,7 @@ import { Socket, Server as SocketServer } from "socket.io";
 import { Server as HttpServer } from "http";
 import chalk from "chalk";
 import { ClientToServerEvents, EventsParams, InterServerEvents, ServerToClientEvents, SocketData } from "../types/socket";
+import { Utils } from "../lib/utils";
 
 export class SocketManager {
     public static instance: SocketManager;
@@ -37,6 +38,25 @@ export class SocketManager {
         }
         
         client.collaborators = collaborators;
+        console.log("updated collaborators", this._clients);
+    }
+
+    public getCollaborators(email: string) {
+        const client = [...this._clients.values()].find((client) => client.email === email);
+        if (!client) {
+            return [];
+        }
+        
+        return client.collaborators;
+    }
+
+    public disolveCollaborators(socketId: string) {
+        const client = [...this._clients.values()].find((client) => client.socketId === socketId);
+        if (!client) {
+            return;
+        }
+        
+        client.collaborators = [];
     }
 
     private registerEvents() {
@@ -49,6 +69,7 @@ export class SocketManager {
             socket.on("hello", (data: EventsParams["hello"]) => {
                 const payload = {
                     ...data,
+                    collaborators: this.getCollaborators(data.email),
                     socketId: socket.id,
                 }
                 this._clients.set(data.email, payload);
@@ -56,21 +77,17 @@ export class SocketManager {
             })
 
             socket.on("mousemove", (data: EventsParams["mousemove"]) => {
-                const client = this._clients.get(data.email);
-                if (!client) {
+                const collaborators = this.getCollaborators(data.email);
+                if (!collaborators) {
                     return;
                 }
 
-                console.log(client);
-                const collaborators = JSON.parse(client.collaborators as unknown as string);
                 collaborators.forEach((collaborator: string) => {
-                    console.log(collaborator);
                     const client = this._clients.get(collaborator);
                     if (!client) {
                         return;
                     }
                     
-                    console.log(client);
                     const socket = this._sockets.get(client.socketId!);
                     if (socket) {
                         socket.emit("mousemove", data);
@@ -80,6 +97,7 @@ export class SocketManager {
 
             socket.on("disconnect", () => {
                 this._sockets.delete(socket.id);
+                this.disolveCollaborators(socket.id);
                 console.log(chalk.red("user disconnected") + ` [${this._sockets.size}]`);
             });
         });

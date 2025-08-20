@@ -3,6 +3,14 @@ import { Users } from "../models/users.model";
 import jwt from "jsonwebtoken";
 import { SocketManager } from "../managers/socket.manager";
 
+/**
+ * 
+ * @param req 
+ * @param res 
+ * @param email // email of the user to share with
+ * @param sharer // email of the user sharing
+ * @returns 
+ */
 export const _Share = async (req: Request, res: Response) => {
     try {
         const { email, sharer } = req.body;
@@ -28,13 +36,20 @@ export const _Share = async (req: Request, res: Response) => {
             });
         }
 
-        const collaborators = JSON.parse(userSharer.collaborators);
-        if (!collaborators.includes(user.email)) {
-            collaborators.push(user.email);
-            userSharer.collaborators = JSON.stringify(collaborators);
-            SocketManager.getInstance().updateCollaborator(user.email, collaborators);
-            await Users.updateUser(userSharer.id!, userSharer);
+        const sharerCollaborators = userSharer.collaborators || [];
+        if (!sharerCollaborators.includes(user.email)) {
+            sharerCollaborators.push(user.email);
         }
+
+        const userCollaborators = user.collaborators || [];
+        if (!userCollaborators.includes(userSharer.email)) {
+            userCollaborators.push(userSharer.email);
+        }
+
+        SocketManager.getInstance().updateCollaborator(user.email, sharerCollaborators);
+        SocketManager.getInstance().updateCollaborator(userSharer.email, userCollaborators);
+        console.log(sharerCollaborators);
+        console.log(userCollaborators);
 
         res.status(200).json({
             message: "User shared successfully",
@@ -68,7 +83,6 @@ export const _Auth = async (req: Request, res: Response) => {
                 email,
                 avatar,
                 context,
-                collaborators: JSON.stringify([]),
             });
         }
 

@@ -9,4 +9,9 @@ export class Utils {
             return false;
         }
     }
+
+    public static getUserDataFromToken(token: string): any {
+        const decoded = jwt.decode(token);
+        return decoded;
+    }
 }
