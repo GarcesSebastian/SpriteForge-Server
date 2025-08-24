@@ -27,7 +27,7 @@ app.get("/", (req, res) => {
     res.json({ message: "ok" });
 });
 
-app.post("test", (req, res) => {
+app.post("/test", (req, res) => {
     const body = req.body;
     res.json({ data: body })
 })
