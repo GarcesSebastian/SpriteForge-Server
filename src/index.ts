@@ -6,7 +6,6 @@ import { SocketManager } from "./managers/socket.manager";
 import cors from "cors";
 import helmet from "helmet";
 import rateLimit from "express-rate-limit";
-import usersRoutes from "./routes/users.routes";
 
 config();
 
@@ -37,8 +36,6 @@ SocketManager.getInstance(server).start();
 app.get("/", (req, res) => {
     res.json({ message: "ok" });
 });
-
-app.use("/users", usersRoutes);
 
 server.listen(PORT, "0.0.0.0", () => {
     console.log(chalk.green(`Server is running on port ${PORT}`));
