@@ -1,6 +1,6 @@
 import express from "express";
 import { config } from "dotenv";
-import { Server } from "http";
+import http from "http";
 import chalk from "chalk";
 import { SocketManager } from "./managers/socket.manager";
 import cors from "cors";
@@ -11,16 +11,16 @@ import usersRoutes from "./routes/users.routes";
 config();
 
 const app = express();
-const server = new Server(app);
-const PORT = process.env.PORT || 4000;
+const server = http.createServer(app);
+const PORT = Number(process.env.PORT) || 4000;
 
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ extended: true }));
 app.use(rateLimit({
-    windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 100, // limit each IP to 100 requests per windowMs
+    windowMs: 15 * 60 * 1000,
+    max: 100,
     message: "Too many requests from this IP, please try again later.",
-    handler: (req, res, next, options) => {
+    handler: (req, res) => {
         res.status(429).json({
             message: "Too many requests from this IP, please try again later.",
         });
@@ -34,8 +34,12 @@ app.use(cors({
 
 SocketManager.getInstance(server).start();
 
+app.get("/", (req, res) => {
+    res.json({ message: "ok" });
+});
+
 app.use("/users", usersRoutes);
 
-server.listen(PORT, () => {
+server.listen(PORT, "0.0.0.0", () => {
     console.log(chalk.green(`Server is running on port ${PORT}`));
 });
