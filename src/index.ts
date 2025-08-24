@@ -29,6 +29,13 @@ app.get("/", (req, res) => {
 
 app.post("/test", (req, res) => {
     const body = req.body;
+    const token = req.headers.authorization?.split(" ")[2];
+    console.log(body)
+
+    if (!token) {
+        res.status(400).json({ message: "Token Not Found" })
+    }
+
     res.json({ data: body })
 })
 
