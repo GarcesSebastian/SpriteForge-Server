@@ -29,14 +29,14 @@ app.get("/", (req, res) => {
 
 app.post("/test", (req, res) => {
     const body = req.body;
-    const token = req.headers.authorization?.split(" ")[2];
+    const token = req.headers.authorization?.split(" ")[1];
     console.log(body)
 
     if (!token) {
-        res.status(400).json({ message: "Token Not Found" })
+        return res.status(400).json({ message: "Token Not Found" });
     }
 
-    res.json({ data: body })
+    res.json({ data: body });
 })
 
 server.listen(PORT, "0.0.0.0", () => {
