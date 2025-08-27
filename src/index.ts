@@ -16,8 +16,20 @@ const PORT = Number(process.env.PORT) || 4000;
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ extended: true }));
 app.use(helmet());
+app.use(rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 100,
+    message: "Too many requests from this IP, please try again later.",
+    handler: (req, res) => {
+        res.status(429).json({
+            message: "Too many requests from this IP, please try again later.",
+        });
+    },
+}));
 app.use(cors({
-    origin: process.env.CORS_ORIGINS?.split(",") || "*",
+    origin: process.env.CORS_ORIGINS?.split(","),
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
     credentials: true,
 }));
 
@@ -27,18 +39,6 @@ app.get("/", (req, res) => {
     res.json({ message: "ok" });
 });
 
-app.post("/test", (req, res) => {
-    const body = req.body;
-    const token = req.headers.authorization?.split(" ")[1];
-    console.log(body)
-
-    if (!token) {
-        return res.status(400).json({ message: "Token Not Found" });
-    }
-
-    res.json({ data: body });
-})
-
-server.listen(PORT, "0.0.0.0", () => {
+server.listen(PORT, () => {
     console.log(chalk.green(`Server is running on port ${PORT}`));
 });
